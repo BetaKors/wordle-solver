@@ -1,0 +1,4 @@
+[project]
+name = "wordle-solver"
+version = "0.0.1"
+dependencies = ["bconsole>=0.0.11"]
