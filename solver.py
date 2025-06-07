@@ -1,13 +1,11 @@
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
-from typing import ClassVar, Self, final
-
-from bconsole import Foreground, Modifier
+from typing import ClassVar, Self, Sequence, final
 
 
 @final
-class GuessType(Enum):
+class LetterStatus(Enum):
     Correct = 1
     Incorrect = auto()
     Miss = auto()
@@ -17,16 +15,7 @@ class GuessType(Enum):
 @dataclass(frozen=True)
 class Letter:
     char: str
-    type: GuessType
-
-    _COLOR_MAP: ClassVar = {
-        GuessType.Correct: Foreground.GREEN,
-        GuessType.Incorrect: Foreground.make_rgb(64, 64, 72),
-        GuessType.Miss: Foreground.YELLOW,
-    }
-
-    def __str__(self) -> str:
-        return self._COLOR_MAP[self.type] + self.char + Modifier.RESET
+    status: LetterStatus
 
 
 @final
@@ -34,28 +23,30 @@ class Letter:
 class Guess:
     letters: list[Letter]
 
-    _TYPE_MAP: ClassVar = {
-        "c": GuessType.Correct,
-        "i": GuessType.Incorrect,
-        "m": GuessType.Miss,
+    _CHAR_TO_STATUS_MAP: ClassVar = {
+        "c": LetterStatus.Correct,
+        "i": LetterStatus.Incorrect,
+        "m": LetterStatus.Miss,
     }
 
     @classmethod
     def from_map(cls, word: str, map: str, /) -> Self:
         return cls(
             [
-                Letter(char.lower(), cls._TYPE_MAP[type.lower()])
+                Letter(char.lower(), cls._CHAR_TO_STATUS_MAP[type.lower()])
                 for char, type in zip(word, map)
             ],
         )
 
-    def __str__(self) -> str:
-        return "".join(str(letter) for letter in self.letters)
+    @property
+    def word(self) -> str:
+        return "".join(letter.char for letter in self.letters)
 
     def __len__(self) -> int:
         return len(self.letters)
 
 
+@final
 class Solver:
     def __init__(
         self, possible_words: list[str], /, *, guesses: list[Guess] | None = None
@@ -76,72 +67,70 @@ class Solver:
             return cls(file.read().splitlines(), guesses=guesses)
 
     @property
-    def guesses(self) -> list[Guess]:
-        return self._guesses
+    def guesses(self) -> Sequence[Guess]:
+        return self._guesses.copy()
 
     @property
     def word_length(self) -> int:
         return self._word_length
 
-    @property
-    def _all_letters(self) -> set[Letter]:
-        return {letter for guess in self._guesses for letter in guess.letters}
-
-    @property
-    def _incorrect_chars(self) -> set[str]:
-        return {
-            letter.char
-            for letter in self._all_letters
-            if letter.type == GuessType.Incorrect
-            and letter.char not in self._correct_chars
-            and letter.char not in self._miss_chars
-        }
-
-    @property
-    def _correct_chars(self) -> set[str]:
-        return {
-            letter.char
-            for letter in self._all_letters
-            if letter.type == GuessType.Correct
-        }
-
-    @property
-    def _miss_chars(self) -> set[str]:
-        return {
-            letter.char for letter in self._all_letters if letter.type == GuessType.Miss
-        }
-
-    @property
-    def _correct_chars_pos(self) -> list[tuple[str, int]]:
-        return [
-            (letter.char, i)
-            for guess in self._guesses
-            for i, letter in enumerate(guess.letters)
-            if letter.type == GuessType.Correct
-        ]
-
-    @property
-    def _miss_chars_pos(self) -> list[tuple[str, int]]:
-        return [
-            (letter.char, i)
-            for guess in self._guesses
-            for i, letter in enumerate(guess.letters)
-            if letter.type == GuessType.Miss
-        ]
-
-    def guess(self, guess: Guess, /) -> None:
+    def add_guess(self, guess: Guess, /) -> None:
         self._validate_guess(guess)
         self._guesses.append(guess)
+
+    def remove_guess(self, guess: Guess | str, /) -> None:
+        if isinstance(guess, str):
+            self._guesses.remove(next(filter(lambda g: g.word == guess, self._guesses)))
+            return
+
+        self._guesses.remove(guess)
+
+    def clear_guesses(self) -> None:
+        self._guesses.clear()
 
     def solve(self) -> list[str]:
         return list(filter(self._keep_word, self._possible_words))
 
     def _keep_word(self, word: str, /) -> bool:
+        all_letters = {letter for guess in self._guesses for letter in guess.letters}
+
+        correct_chars = {
+            letter.char
+            for letter in all_letters
+            if letter.status == LetterStatus.Correct
+        }
+
+        miss_chars = {
+            letter.char for letter in all_letters if letter.status == LetterStatus.Miss
+        }
+
+        incorrect_chars = {
+            letter.char
+            for letter in all_letters
+            if letter.status == LetterStatus.Incorrect
+            and letter.char not in correct_chars
+            and letter.char not in miss_chars
+        }
+
+        correct_chars_pos = [
+            (letter.char, i)
+            for guess in self._guesses
+            for i, letter in enumerate(guess.letters)
+            if letter.status == LetterStatus.Correct
+        ]
+
+        miss_chars_pos = [
+            (letter.char, i)
+            for guess in self._guesses
+            for i, letter in enumerate(guess.letters)
+            if letter.status == LetterStatus.Miss
+        ]
+
         return (
-            not any(char in self._incorrect_chars for char in word)
-            and all(letter == word[i] for letter, i in self._correct_chars_pos)
-            and all(letter != word[i] for letter, i in self._miss_chars_pos)
-            and all(letter in word for letter in self._miss_chars)
+            not any(char in incorrect_chars for char in word)
+            and all(letter == word[i] for letter, i in correct_chars_pos)
+            and all(letter != word[i] for letter, i in miss_chars_pos)
+            and all(letter in word for letter in miss_chars)
         )
 
     def _validate_guess(self, guess: Guess, /) -> None:

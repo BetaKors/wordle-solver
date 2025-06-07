@@ -1,25 +1,30 @@
 from bconsole import Console, Foreground, Modifier
+from bconsole.utils import replace_last
 
-from solver import Guess, Solver
+from solver import Guess, LetterStatus, Solver
+
+_COLOR_MAP = {
+    LetterStatus.Correct: Foreground.GREEN,
+    LetterStatus.Incorrect: (GRAY := Foreground.make_rgb(64, 64, 72)),
+    LetterStatus.Miss: Foreground.YELLOW,
+}
 
 
-def colorize(text: str, color: str) -> str:
+def colorize(text: str, color: str, /) -> str:
     return f"{color}{text}{Modifier.RESET}"
 
 
-GRAY = Foreground.make_rgb(64, 64, 72)
+def prettify_guess(guess: Guess, /) -> str:
+    return "".join(
+        colorize(letter.char, _COLOR_MAP[letter.status]) for letter in guess.letters
+    )
+
 
 console = Console()
 
-if (
-    console.options("Which game are you playing?", options=["Wordle", "Termo"])
-    == "Wordle"
-):
-    file = "wordle_words.txt"
-else:
-    file = "termooo_words.txt"
+name = console.options("Which game are you playing?", options=["Wordle", "Termooo"])
 
-solver = Solver.from_file(file)
+solver = Solver.from_file(f"{name.lower()}_words.txt")
 
 console.clear()
 
@@ -29,20 +34,20 @@ console.print(
     f"{colorize('c', Foreground.GREEN)}: {colorize('correct', Foreground.GREEN)} letter, {colorize('i', GRAY)}: {colorize('incorrect', GRAY)} letter, {colorize('m', Foreground.YELLOW)}: {colorize('missed', Foreground.YELLOW)} letter"
 )
 console.print(
-    f"So, for example, if the word is '{str(Guess.from_map('apple', 'ciiim'))}', you should write:"
+    f"So, for example, if the word is '{prettify_guess(Guess.from_map('apple', 'ciiim'))}', you should write:"
 )
 console.arrow("apple-ciiim")
 console.space()
 
 while True:
-    input = console.input(f"[Guess #{len(solver.guesses) + 1}] ", allow_extras=True)
+    input = console.input(f"[Guess #{len(solver.guesses) + 1}]", allow_extras=True)
 
     if "-" not in input:
         console.error("Invalid guess.", hint="Guesses must be in the correct format.")
         continue
 
     try:
-        solver.guess(guess := Guess.from_map(*input.split("-")))
+        solver.add_guess(guess := Guess.from_map(*input.split("-")))
     except ValueError:
         console.error(
             "Invalid guess.",
@@ -53,14 +58,21 @@ while True:
     words_left = solver.solve()
 
     console.erase_lines()
-    console.arrow(str(guess))
+    console.arrow(prettify_guess(guess))
 
     if len(words_left) == 0:
-        console.print("No words left. Something went wrong.", Foreground.RED)
+        console.error("No words left. Something went wrong.")
         break
     elif len(words_left) == 1:
         console.arrow(f"Final word: {words_left[0]}")
         break
     else:
         console.print(f"{len(words_left)} Words left.", end=" ")
-        console.print(f"They are: {', '.join(words_left)}", GRAY)
+
+        if len(words_left) > 2000:
+            console.print("Too many words to display.", GRAY)
+        else:
+            console.print(
+                f"They are: {replace_last(', '.join(words_left), ',', ' and')}.",  # type: ignore
+                GRAY,
+            )
