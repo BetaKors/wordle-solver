@@ -10,28 +10,27 @@ _COLOR_MAP = {
 }
 
 
-def colorize(text: str, color: str, /) -> str:
-    return f"{color}{text}{Modifier.RESET}"
-
-
 def prettify_guess(guess: Guess, /) -> str:
     return "".join(
-        colorize(letter.char, _COLOR_MAP[letter.status]) for letter in guess.letters
+        col(letter.char, _COLOR_MAP[letter.status]) for letter in guess.letters
     )
 
 
 console = Console()
+col = console.colorize
 
-name = console.options("Which game are you playing?", options=["Wordle", "Termooo"])
+name = console.options(
+    "Which game are you playing?", options=["Wordle", "Termo", "Letreco"]
+)
 
-solver = Solver.from_file(f"{name.lower()}_words.txt")
+solver = Solver.from_file(f"./words/{name.lower()}.txt")
 
-console.clear()
+console.space()
 
 console.print("Welcome to The Solver™!", Foreground.GREEN + Modifier.BOLD)
 console.print("To guess, use the following format:")
 console.print(
-    f"{colorize('c', Foreground.GREEN)}: {colorize('correct', Foreground.GREEN)} letter, {colorize('i', GRAY)}: {colorize('incorrect', GRAY)} letter, {colorize('m', Foreground.YELLOW)}: {colorize('missed', Foreground.YELLOW)} letter"
+    f"{col('c', Foreground.GREEN)}: {col('correct', Foreground.GREEN)} letter, {col('i', GRAY)}: {col('incorrect', GRAY)} letter, {col('m', Foreground.YELLOW)}: {col('missed', Foreground.YELLOW)} letter"
 )
 console.print(
     f"So, for example, if the word is '{prettify_guess(Guess.from_map('apple', 'ciiim'))}', you should write:"
