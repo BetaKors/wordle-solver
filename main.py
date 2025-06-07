@@ -23,8 +23,11 @@ col = console.colorize
 
 files = list(Path("./words").glob("*.txt"))
 
+if not files:
+    console.panic("No possible words list found.")
+
 name = console.options(
-    "Which game are you playing?",
+    "Which words list are you going to use?",
     options=list(map(lambda f: f.stem, files)),
     title=False,
     wrapper=None,
