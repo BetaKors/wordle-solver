@@ -26,6 +26,8 @@ files = list(Path("./words").glob("*.txt"))
 name = console.options(
     "Which game are you playing?",
     options=list(map(lambda f: f.stem, files)),
+    title=False,
+    wrapper=None,
 )
 
 solver = Solver.from_file(f"./words/{name}.txt")
