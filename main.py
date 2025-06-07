@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from bconsole import Console, Foreground, Modifier
 from bconsole.utils import replace_last
 
@@ -19,15 +21,17 @@ def prettify_guess(guess: Guess, /) -> str:
 console = Console()
 col = console.colorize
 
+files = list(Path("./words").glob("*.txt"))
+
 name = console.options(
-    "Which game are you playing?", options=["Wordle", "Termo", "Letreco"]
+    "Which game are you playing?", options=list(map(lambda f: f.stem, files))
 )
 
 solver = Solver.from_file(f"./words/{name.lower()}.txt")
 
 console.space()
 
-console.print("Welcome to The Solver™!", Foreground.GREEN + Modifier.BOLD)
+console.print("Welcome to betakors/wordle-solver!", Foreground.GREEN + Modifier.BOLD)
 console.print("To guess, use the following format:")
 console.print(
     f"{col('c', Foreground.GREEN)}: {col('correct', Foreground.GREEN)} letter, {col('i', GRAY)}: {col('incorrect', GRAY)} letter, {col('m', Foreground.YELLOW)}: {col('missed', Foreground.YELLOW)} letter"
