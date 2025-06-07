@@ -24,10 +24,11 @@ col = console.colorize
 files = list(Path("./words").glob("*.txt"))
 
 name = console.options(
-    "Which game are you playing?", options=list(map(lambda f: f.stem, files))
+    "Which game are you playing?",
+    options=list(map(lambda f: f.stem, files)),
 )
 
-solver = Solver.from_file(f"./words/{name.lower()}.txt")
+solver = Solver.from_file(f"./words/{name}.txt")
 
 console.space()
 
